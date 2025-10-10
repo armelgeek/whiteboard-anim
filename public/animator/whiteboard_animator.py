@@ -388,6 +388,429 @@ def export_animation_json(variables, json_path):
         return False
 
 
+def apply_entrance_animation(frame, layer_img, animation_config, progress):
+    """
+    Applique une animation d'entrée à une couche.
+    
+    Args:
+        frame: Frame de base sur laquelle composer
+        layer_img: Image de la couche à animer
+        animation_config: Configuration de l'animation {"type": "fade_in", "duration": 1.0}
+        progress: Progression de l'animation (0.0 à 1.0)
+    
+    Returns:
+        Frame composée avec l'animation appliquée
+    """
+    if not animation_config or progress >= 1.0:
+        return cv2.addWeighted(frame, 1, layer_img, 1, 0)
+    
+    anim_type = animation_config.get("type", "none")
+    
+    if anim_type == "fade_in":
+        alpha = progress
+        return cv2.addWeighted(frame, 1, layer_img, alpha, 0)
+    
+    elif anim_type == "slide_in_left":
+        offset = int((1 - progress) * frame.shape[1])
+        result = frame.copy()
+        if offset < frame.shape[1]:
+            shift_img = np.roll(layer_img, -offset, axis=1)
+            result = cv2.addWeighted(result, 1, shift_img, 1, 0)
+        return result
+    
+    elif anim_type == "slide_in_right":
+        offset = int((1 - progress) * frame.shape[1])
+        result = frame.copy()
+        if offset < frame.shape[1]:
+            shift_img = np.roll(layer_img, offset, axis=1)
+            result = cv2.addWeighted(result, 1, shift_img, 1, 0)
+        return result
+    
+    elif anim_type == "zoom_in":
+        scale = 0.5 + (progress * 0.5)
+        h, w = layer_img.shape[:2]
+        new_h, new_w = int(h * scale), int(w * scale)
+        if new_h > 0 and new_w > 0:
+            resized = cv2.resize(layer_img, (new_w, new_h))
+            result = frame.copy()
+            y_offset = (h - new_h) // 2
+            x_offset = (w - new_w) // 2
+            if y_offset >= 0 and x_offset >= 0 and y_offset + new_h <= h and x_offset + new_w <= w:
+                result[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
+            return result
+    
+    return cv2.addWeighted(frame, 1, layer_img, 1, 0)
+
+
+def apply_camera_transform(img, camera_config):
+    """
+    Applique une transformation de caméra (zoom et position focale).
+    
+    Args:
+        img: Image à transformer
+        camera_config: {"zoom": 1.5, "position": {"x": 0.5, "y": 0.5}}
+    
+    Returns:
+        Image transformée
+    """
+    if not camera_config:
+        return img
+    
+    zoom = camera_config.get("zoom", 1.0)
+    position = camera_config.get("position", {"x": 0.5, "y": 0.5})
+    
+    h, w = img.shape[:2]
+    
+    # Calculate crop dimensions
+    crop_h = int(h / zoom)
+    crop_w = int(w / zoom)
+    
+    # Calculate focus point
+    focus_x = int(w * position["x"])
+    focus_y = int(h * position["y"])
+    
+    # Calculate crop boundaries
+    x1 = max(0, focus_x - crop_w // 2)
+    y1 = max(0, focus_y - crop_h // 2)
+    x2 = min(w, x1 + crop_w)
+    y2 = min(h, y1 + crop_h)
+    
+    # Adjust if crop exceeds boundaries
+    if x2 - x1 < crop_w:
+        x1 = max(0, x2 - crop_w)
+    if y2 - y1 < crop_h:
+        y1 = max(0, y2 - crop_h)
+    
+    # Crop and resize back to original size
+    cropped = img[y1:y2, x1:x2]
+    if cropped.size > 0:
+        return cv2.resize(cropped, (w, h))
+    return img
+
+
+def apply_post_animation_effect(video_frames, animation_config, frame_rate):
+    """
+    Applique des effets d'animation post-dessin (zoom in/out).
+    
+    Args:
+        video_frames: Liste des frames déjà générées
+        animation_config: {"type": "zoom_in", "duration": 2.0, "start_zoom": 1.0, "end_zoom": 2.0, ...}
+        frame_rate: FPS de la vidéo
+    
+    Returns:
+        Liste de frames avec l'effet appliqué
+    """
+    if not animation_config or animation_config.get("type") == "none":
+        return video_frames
+    
+    anim_type = animation_config.get("type")
+    duration = animation_config.get("duration", 1.0)
+    start_zoom = animation_config.get("start_zoom", 1.0)
+    end_zoom = animation_config.get("end_zoom", 2.0)
+    focus_pos = animation_config.get("focus_position", {"x": 0.5, "y": 0.5})
+    
+    num_frames = int(duration * frame_rate)
+    if num_frames == 0 or len(video_frames) == 0:
+        return video_frames
+    
+    # Get the last frame as the base
+    base_frame = video_frames[-1].copy()
+    result_frames = []
+    
+    for i in range(num_frames):
+        progress = i / num_frames
+        
+        if anim_type == "zoom_in":
+            current_zoom = start_zoom + (end_zoom - start_zoom) * progress
+        elif anim_type == "zoom_out":
+            current_zoom = start_zoom - (start_zoom - end_zoom) * progress
+        else:
+            current_zoom = 1.0
+        
+        # Apply zoom
+        camera_config = {
+            "zoom": current_zoom,
+            "position": focus_pos
+        }
+        transformed = apply_camera_transform(base_frame, camera_config)
+        result_frames.append(transformed)
+    
+    return result_frames
+
+
+def process_layer_with_animation(layer_config, variables, base_frame, prev_layer_frame=None):
+    """
+    Traite une couche avec toutes ses propriétés et animations.
+    
+    Args:
+        layer_config: Configuration de la couche
+        variables: Variables globales
+        base_frame: Frame de base (blanc)
+        prev_layer_frame: Frame de la couche précédente pour le morphing
+    
+    Returns:
+        Liste de frames pour cette couche
+    """
+    # Load layer image
+    image_path = layer_config.get("image_path")
+    if not image_path or not os.path.exists(image_path):
+        print(f"⚠️ Image de couche introuvable: {image_path}")
+        return []
+    
+    layer_img = cv2.imread(image_path)
+    if layer_img is None:
+        print(f"⚠️ Impossible de charger l'image: {image_path}")
+        return []
+    
+    # Get layer properties
+    position = layer_config.get("position", {"x": 0, "y": 0})
+    scale = layer_config.get("scale", 1.0)
+    opacity = layer_config.get("opacity", 1.0)
+    skip_rate = layer_config.get("skip_rate", variables.object_skip_rate)
+    mode = layer_config.get("mode", "draw")
+    
+    # Apply scale
+    if scale != 1.0:
+        new_w = int(layer_img.shape[1] * scale)
+        new_h = int(layer_img.shape[0] * scale)
+        if new_w > 0 and new_h > 0:
+            layer_img = cv2.resize(layer_img, (new_w, new_h))
+    
+    # Resize to match canvas
+    layer_img = cv2.resize(layer_img, (variables.resize_wd, variables.resize_ht))
+    
+    # Apply position offset (simplified - overlay at position)
+    if position["x"] != 0 or position["y"] != 0:
+        shifted = np.zeros_like(layer_img)
+        h, w = layer_img.shape[:2]
+        x_off = int(position["x"])
+        y_off = int(position["y"])
+        
+        # Calculate valid region
+        src_x1 = max(0, -x_off)
+        src_y1 = max(0, -y_off)
+        src_x2 = min(w, w - x_off) if x_off < 0 else min(w, w)
+        src_y2 = min(h, h - y_off) if y_off < 0 else min(h, h)
+        
+        dst_x1 = max(0, x_off)
+        dst_y1 = max(0, y_off)
+        dst_x2 = min(w, dst_x1 + (src_x2 - src_x1))
+        dst_y2 = min(h, dst_y1 + (src_y2 - src_y1))
+        
+        if dst_x2 > dst_x1 and dst_y2 > dst_y1:
+            shifted[dst_y1:dst_y2, dst_x1:dst_x2] = layer_img[src_y1:src_y2, src_x1:src_x2]
+        layer_img = shifted
+    
+    # Apply opacity
+    if opacity < 1.0:
+        layer_img = (layer_img * opacity).astype(np.uint8)
+    
+    # Process image for drawing
+    layer_processed = preprocess_image(layer_img.copy(), 
+                                       AllVariables(frame_rate=variables.frame_rate,
+                                                   resize_wd=variables.resize_wd,
+                                                   resize_ht=variables.resize_ht,
+                                                   split_len=variables.split_len,
+                                                   object_skip_rate=skip_rate,
+                                                   bg_object_skip_rate=variables.bg_object_skip_rate,
+                                                   end_gray_img_duration_in_sec=0))
+    
+    # Handle different modes
+    if mode == "static":
+        # No animation - just return the layer composited on base
+        return [cv2.addWeighted(base_frame, 1, layer_img, 1, 0)]
+    
+    # For "draw" and "eraser" modes, create drawing animation
+    frames = []
+    
+    # Choose hand or eraser image
+    if mode == "eraser":
+        # Load eraser image if available, else use hand
+        eraser_path = os.path.join(images_path, 'eraser.png')
+        if os.path.exists(eraser_path):
+            drawing_tool = cv2.imread(eraser_path)
+        else:
+            drawing_tool = variables.hand
+        drawing_tool_mask = variables.hand_mask
+    else:
+        drawing_tool = variables.hand
+        drawing_tool_mask = variables.hand_mask
+    
+    # Simplified drawing animation - just create frames with progressive reveal
+    # This is a placeholder - the full implementation would use the tile-based drawing
+    num_frames = max(10, int(variables.frame_rate * 2))  # At least 2 seconds
+    
+    for i in range(num_frames):
+        progress = (i + 1) / num_frames
+        # Simple alpha blending based on progress
+        alpha = min(1.0, progress * 1.2)
+        frame = cv2.addWeighted(base_frame, 1, layer_img, alpha, 0)
+        frames.append(frame)
+    
+    return frames
+
+
+def draw_slides_with_layers(config_path, variables, save_video_path):
+    """
+    Dessine une animation complète avec système de slides et couches.
+    
+    Args:
+        config_path: Chemin vers le fichier JSON de configuration
+        variables: Variables globales
+        save_video_path: Chemin de sauvegarde de la vidéo
+    
+    Returns:
+        True si succès, False sinon
+    """
+    try:
+        # Load configuration
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        slides = config.get("slides", [])
+        transitions = config.get("transitions", [])
+        
+        if not slides:
+            print("⚠️ Aucune slide trouvée dans la configuration.")
+            return False
+        
+        print(f"📊 Traitement de {len(slides)} slide(s)...")
+        
+        # Setup video writer
+        if platform == "android":
+            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        else:
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        
+        video_writer = cv2.VideoWriter(
+            save_video_path,
+            fourcc,
+            variables.frame_rate,
+            (variables.resize_wd, variables.resize_ht),
+        )
+        
+        # Process each slide
+        all_slide_frames = []
+        
+        for slide_idx, slide in enumerate(slides):
+            print(f"\n🎬 Traitement de la slide {slide_idx}...")
+            
+            slide_duration = slide.get("duration", 5)
+            layers = slide.get("layers", [])
+            
+            if not layers:
+                # No layers - use legacy single image if provided
+                print(f"⚠️ Slide {slide_idx} n'a pas de couches, passage...")
+                continue
+            
+            # Sort layers by z_index
+            sorted_layers = sorted(layers, key=lambda l: l.get("z_index", 0))
+            
+            # Create base white frame
+            base_frame = np.zeros((variables.resize_ht, variables.resize_wd, 3), np.uint8)
+            base_frame[:] = [255, 255, 255]
+            
+            slide_frames = []
+            prev_layer_frame = None
+            
+            # Process each layer
+            for layer_idx, layer in enumerate(sorted_layers):
+                print(f"  📄 Traitement de la couche {layer_idx} (z_index={layer.get('z_index', 0)})...")
+                
+                # Check for entrance animation
+                entrance_anim = layer.get("entrance_animation")
+                
+                # Process layer
+                layer_frames = process_layer_with_animation(layer, variables, base_frame, prev_layer_frame)
+                
+                if not layer_frames:
+                    continue
+                
+                # Apply entrance animation if configured
+                if entrance_anim:
+                    anim_duration = entrance_anim.get("duration", 0.5)
+                    anim_frames = int(anim_duration * variables.frame_rate)
+                    
+                    entrance_frames = []
+                    for i in range(anim_frames):
+                        progress = (i + 1) / anim_frames
+                        frame = apply_entrance_animation(base_frame, layer_frames[-1], entrance_anim, progress)
+                        entrance_frames.append(frame)
+                    
+                    slide_frames.extend(entrance_frames)
+                else:
+                    slide_frames.extend(layer_frames)
+                
+                # Update base frame with this layer
+                if layer_frames:
+                    base_frame = layer_frames[-1].copy()
+                    prev_layer_frame = base_frame.copy()
+                
+                # Apply camera transform if configured
+                camera_config = layer.get("camera")
+                if camera_config and slide_frames:
+                    for i in range(len(slide_frames)):
+                        slide_frames[i] = apply_camera_transform(slide_frames[i], camera_config)
+                
+                # Apply post-animation effect if configured
+                animation_config = layer.get("animation")
+                if animation_config:
+                    print(f"    🎭 Application de l'animation post-dessin: {animation_config.get('type')}...")
+                    post_frames = apply_post_animation_effect([base_frame], animation_config, variables.frame_rate)
+                    slide_frames.extend(post_frames)
+                    if post_frames:
+                        base_frame = post_frames[-1].copy()
+            
+            # Hold final frame for remaining slide duration
+            current_duration = len(slide_frames) / variables.frame_rate
+            remaining_duration = max(0, slide_duration - current_duration)
+            hold_frames = int(remaining_duration * variables.frame_rate)
+            
+            if hold_frames > 0 and slide_frames:
+                for _ in range(hold_frames):
+                    slide_frames.append(slide_frames[-1].copy())
+            
+            all_slide_frames.append(slide_frames)
+        
+        # Apply transitions between slides
+        final_frames = []
+        for slide_idx, slide_frames in enumerate(all_slide_frames):
+            final_frames.extend(slide_frames)
+            
+            # Check for transition after this slide
+            transition = next((t for t in transitions if t.get("after_slide") == slide_idx), None)
+            if transition and slide_idx < len(all_slide_frames) - 1:
+                # Simple fade transition
+                trans_type = transition.get("type", "fade")
+                trans_duration = transition.get("duration", 0.5)
+                trans_frames = int(trans_duration * variables.frame_rate)
+                
+                last_frame = slide_frames[-1] if slide_frames else base_frame
+                next_frames = all_slide_frames[slide_idx + 1]
+                first_next_frame = next_frames[0] if next_frames else base_frame
+                
+                for i in range(trans_frames):
+                    alpha = (i + 1) / trans_frames
+                    trans_frame = cv2.addWeighted(last_frame, 1 - alpha, first_next_frame, alpha, 0)
+                    final_frames.append(trans_frame)
+        
+        # Write all frames
+        print(f"\n✍️ Écriture de {len(final_frames)} frames...")
+        for frame in final_frames:
+            video_writer.write(frame)
+        
+        video_writer.release()
+        print(f"✅ Vidéo générée avec succès!")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur lors du traitement des slides: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def find_nearest_res(given):
     """Trouve la résolution standard la plus proche pour une dimension donnée."""
     arr = np.array([360, 480, 640, 720, 1080, 1280, 1440, 1920, 2160, 2560, 3840, 4320, 7680])
@@ -594,7 +1017,7 @@ DEFAULT_MAIN_IMG_DURATION = 3
 def main():
     """Fonction principale pour gérer les arguments CLI et lancer l'animation."""
     parser = argparse.ArgumentParser(
-        description="Crée une vidéo d'animation style tableau blanc à partir d'une image. "
+        description="Crée une vidéo d'animation style tableau blanc à partir d'une image ou d'une configuration JSON avec couches. "
         "Utilisez aussi --get-split-lens [image_path] pour voir les valeurs 'split_len' recommandées."
     )
     
@@ -603,7 +1026,13 @@ def main():
         type=str, 
         nargs='?', 
         default=None,
-        help="Le chemin du fichier image à animer (ex: /home/user/dessin.png)"
+        help="Le chemin du fichier image à animer OU le chemin du fichier JSON de configuration pour le mode couches"
+    )
+
+    parser.add_argument(
+        '--config', 
+        type=str,
+        help="Mode couches: Chemin vers un fichier JSON de configuration définissant les slides et couches"
     )
 
     parser.add_argument(
@@ -677,10 +1106,77 @@ def main():
         print("="*50 + "\n")
         return
 
-    # --- Mode de génération vidéo ---
+    # --- Mode couches avec JSON ---
+    config_file = args.config or (args.image_path if args.image_path and args.image_path.endswith('.json') else None)
+    
+    if config_file:
+        if not os.path.exists(config_file):
+            print(f"❌ Erreur: Le fichier de configuration est introuvable: {config_file}")
+            return
+        
+        print("\n" + "="*50)
+        print("🎬 Lancement de l'animation Whiteboard - Mode Couches")
+        print(f"Configuration: {config_file}")
+        print(f"Paramètres: Split={args.split_len}, FPS={args.frame_rate}")
+        print("="*50)
+        
+        # Load config to get resolution
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # Try to get resolution from config or use defaults
+            width = config.get("width", 1280)
+            height = config.get("height", 720)
+            
+        except Exception as e:
+            print(f"⚠️ Erreur lors de la lecture du fichier de configuration: {e}")
+            width, height = 1280, 720
+        
+        now = datetime.datetime.now()
+        current_time = str(now.strftime("%H%M%S"))
+        current_date = str(now.strftime("%Y%m%d"))
+        
+        video_save_name = f"vid_layers_{current_date}_{current_time}.mp4"
+        save_video_path = os.path.join(save_path, video_save_name)
+        ffmpeg_file_name = f"vid_layers_{current_date}_{current_time}_h264.mp4"
+        ffmpeg_video_path = os.path.join(save_path, ffmpeg_file_name)
+        os.makedirs(os.path.dirname(save_video_path), exist_ok=True)
+        
+        variables = AllVariables(
+            frame_rate=args.frame_rate,
+            resize_wd=width,
+            resize_ht=height,
+            split_len=args.split_len,
+            object_skip_rate=args.skip_rate,
+            bg_object_skip_rate=args.bg_skip_rate,
+            end_gray_img_duration_in_sec=args.duration,
+            export_json=args.export_json
+        )
+        
+        # Preprocess hand images
+        variables = preprocess_hand_image(hand_path, hand_mask_path, variables)
+        
+        # Process slides with layers
+        success = draw_slides_with_layers(config_file, variables, save_video_path)
+        
+        if success:
+            ff_stat = ffmpeg_convert(source_vid=save_video_path, dest_vid=ffmpeg_video_path, platform=platform)
+            
+            if ff_stat:
+                print(f"\n✅ SUCCÈS! Vidéo enregistrée sous: {ffmpeg_video_path}")
+                os.unlink(save_video_path)
+            else:
+                print(f"\n✅ SUCCÈS! Vidéo enregistrée sous: {save_video_path}")
+        else:
+            print(f"\n❌ ÉCHEC de la génération vidéo.")
+        
+        return
+
+    # --- Mode de génération vidéo classique (image unique) ---
     if not args.image_path:
         parser.print_help()
-        print("\n❌ ERREUR: Le chemin de l'image est manquant.")
+        print("\n❌ ERREUR: Le chemin de l'image ou du fichier de configuration est manquant.")
         return
 
     if not os.path.exists(args.image_path):

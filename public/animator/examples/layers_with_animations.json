@@ -1,0 +1,45 @@
+{
+  "width": 1280,
+  "height": 720,
+  "slides": [
+    {
+      "index": 0,
+      "duration": 12,
+      "layers": [
+        {
+          "image_path": "scene.png",
+          "position": {"x": 0, "y": 0},
+          "z_index": 1,
+          "skip_rate": 10,
+          "mode": "draw"
+        },
+        {
+          "image_path": "error.png",
+          "position": {"x": 200, "y": 150},
+          "z_index": 2,
+          "skip_rate": 15,
+          "mode": "eraser",
+          "entrance_animation": {
+            "type": "fade_in",
+            "duration": 1.0
+          }
+        },
+        {
+          "image_path": "logo.png",
+          "position": {"x": 50, "y": 50},
+          "z_index": 3,
+          "scale": 0.3,
+          "mode": "static",
+          "entrance_animation": {
+            "type": "zoom_in",
+            "duration": 1.5
+          },
+          "exit_animation": {
+            "type": "fade_out",
+            "duration": 1.0
+          }
+        }
+      ]
+    }
+  ]
+}

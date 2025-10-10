@@ -1,0 +1,30 @@
+{
+  "width": 1280,
+  "height": 720,
+  "slides": [
+    {
+      "index": 0,
+      "duration": 8,
+      "layers": [
+        {
+          "image_path": "background.png",
+          "position": {"x": 0, "y": 0},
+          "z_index": 1,
+          "skip_rate": 5,
+          "scale": 1.0,
+          "opacity": 1.0,
+          "mode": "draw"
+        },
+        {
+          "image_path": "logo.png",
+          "position": {"x": 50, "y": 50},
+          "z_index": 2,
+          "skip_rate": 20,
+          "scale": 0.3,
+          "opacity": 1.0,
+          "mode": "draw"
+        }
+      ]
+    }
+  ]
+}

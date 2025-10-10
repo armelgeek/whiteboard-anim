@@ -1,0 +1,47 @@
+{
+  "width": 1280,
+  "height": 720,
+  "slides": [
+    {
+      "index": 0,
+      "duration": 4,
+      "layers": [
+        {
+          "image_path": "intro_bg.png",
+          "position": {"x": 0, "y": 0},
+          "z_index": 1,
+          "skip_rate": 8,
+          "mode": "draw"
+        },
+        {
+          "image_path": "intro_logo.png",
+          "position": {"x": 250, "y": 200},
+          "z_index": 2,
+          "skip_rate": 20,
+          "scale": 0.5,
+          "mode": "draw"
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "duration": 3,
+      "layers": [
+        {
+          "image_path": "content.png",
+          "position": {"x": 0, "y": 0},
+          "z_index": 1,
+          "skip_rate": 15,
+          "mode": "draw"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "after_slide": 0,
+      "type": "fade",
+      "duration": 0.8
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "width": 1280,
+  "height": 720,
+  "slides": [
+    {
+      "index": 0,
+      "duration": 10,
+      "layers": [
+        {
+          "image_path": "scene.png",
+          "position": {"x": 0, "y": 0},
+          "z_index": 1,
+          "skip_rate": 10,
+          "mode": "draw",
+          "camera": {
+            "zoom": 1.5,
+            "position": {"x": 0.5, "y": 0.4}
+          },
+          "animation": {
+            "type": "zoom_in",
+            "duration": 2.0,
+            "start_zoom": 1.5,
+            "end_zoom": 2.5,
+            "focus_position": {"x": 0.6, "y": 0.4}
+          }
+        }
+      ]
+    }
+  ]
+}
