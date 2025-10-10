@@ -1,1 +1,4 @@
 save_videos/
+__pycache__/
+*.pyc
+*.pyo
