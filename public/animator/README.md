@@ -6,9 +6,14 @@ Application de création d'animations de type "dessin sur tableau blanc" (whiteb
 
 - ✅ Génération de vidéos d'animation de dessin à partir d'images
 - ✅ Personnalisation des paramètres (FPS, vitesse, grille)
-- ✅ Export JSON des données d'animation (NOUVEAU)
+- ✅ Export JSON des données d'animation
 - ✅ Support de plusieurs formats d'image
 - ✅ Animation avec main réaliste
+- ✨ **NOUVEAU** : Système de couches (layers) avec slides multiples
+- ✨ **NOUVEAU** : Animations d'entrée/sortie personnalisées
+- ✨ **NOUVEAU** : Contrôles de caméra (zoom et focus)
+- ✨ **NOUVEAU** : Transitions entre slides
+- ✨ **NOUVEAU** : Modes de dessin variés (draw, eraser, static)
 
 ## Installation
 
@@ -26,7 +31,7 @@ pip install av
 
 ## Utilisation
 
-### Génération de vidéo
+### Mode image unique (classique)
 
 ```bash
 # Génération simple
@@ -35,6 +40,26 @@ python whiteboard_animator.py image.png
 # Avec paramètres personnalisés
 python whiteboard_animator.py image.png --split-len 15 --frame-rate 30 --skip-rate 8
 ```
+
+### Mode couches (nouveau)
+
+Le mode couches permet de créer des animations complexes avec plusieurs images superposées, des effets de caméra, et des transitions.
+
+```bash
+# Utiliser une configuration JSON
+python whiteboard_animator.py --config layers_config.json
+
+# Ou directement avec le chemin JSON
+python whiteboard_animator.py layers_config.json
+```
+
+**📖 Guide complet : [LAYERS_GUIDE.md](LAYERS_GUIDE.md)**
+
+Exemples de configuration disponibles dans `examples/` :
+- `layers_simple.json` - Configuration de base
+- `layers_advanced.json` - Avec caméra et animations
+- `layers_with_animations.json` - Modes variés
+- `layers_multi_slide.json` - Multi-slides avec transitions
 
 ### Export des données d'animation (JSON)
 
@@ -55,6 +80,7 @@ python whiteboard_animator.py image.png --get-split-lens
 
 ## Paramètres
 
+- `--config` : Chemin vers un fichier JSON de configuration (mode couches)
 - `--split-len` : Taille de la grille pour le dessin (par défaut: 15)
 - `--frame-rate` : Images par seconde (par défaut: 30)
 - `--skip-rate` : Vitesse de dessin (plus grand = plus rapide, par défaut: 8)
@@ -101,10 +127,15 @@ whiteboard-it/
 ├── data/
 │   └── images/              # Images de la main
 ├── save_videos/             # Dossier de sortie (ignoré par git)
-├── examples/                # Scripts d'exemple
+├── examples/                # Scripts et configurations d'exemple
 │   ├── use_animation_data.py
+│   ├── layers_simple.json
+│   ├── layers_advanced.json
+│   ├── layers_with_animations.json
+│   ├── layers_multi_slide.json
 │   └── README.md
 ├── EXPORT_FORMAT.md         # Documentation du format JSON
+├── LAYERS_GUIDE.md          # Guide complet du système de couches
 └── README.md               # Ce fichier
 ```
 

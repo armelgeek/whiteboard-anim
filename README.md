@@ -6,13 +6,14 @@ Une application web interactive pour créer des vidéos d'animation structurées
 
 ## 🎯 Fonctionnalités
 
+### Interface Web (React)
 - **Gestion de scènes avancée** : Interface complète pour gérer vos scènes
   - Panneau latéral avec aperçu de toutes les scènes
   - Ajout, suppression, duplication et réorganisation des scènes
   - Éditeur modal pour modifier les propriétés des scènes
 - **Animation Handwriting** : Deux modes de génération d'animations
   - **Mode Image** : Génération automatique d'animation à partir d'une image
-  - **Mode JSON** ⭐ NOUVEAU : Replay d'animations exportées depuis Python
+  - **Mode JSON** ⭐ : Replay d'animations exportées depuis Python
 - **Scènes multiples** : Divisez votre narration en plusieurs scènes distinctes
 - **Timeline avancée** : Contrôlez précisément la synchronisation des éléments visuels
 - **Animations fluides** : Transitions élégantes entre les scènes
@@ -20,6 +21,21 @@ Une application web interactive pour créer des vidéos d'animation structurées
 - **Persistance des données** : Vos scènes sont sauvegardées automatiquement dans le navigateur
 - **Interface intuitive** : Interface utilisateur moderne construite avec React et Tailwind CSS
 - **Responsive** : Fonctionne sur tous les écrans
+
+### Générateur Python (Backend)
+- ✨ **Système de couches (Layers)** : Superposez plusieurs images avec propriétés individuelles
+  - Positionnement précis (x, y)
+  - Ordre de superposition (z-index)
+  - Échelle et opacité personnalisables
+  - Vitesse de dessin individuelle (skip_rate)
+- ✨ **Modes de dessin** : `draw` (main), `eraser` (gomme), `static` (sans animation)
+- ✨ **Animations d'entrée/sortie** : fade, slide, zoom
+- ✨ **Contrôles de caméra** : Zoom et focus sur zones spécifiques
+- ✨ **Effets post-dessin** : Zoom-in/out progressif
+- ✨ **Slides multiples** : Créez des narrations complexes avec transitions
+- ✨ **Export JSON** : Métadonnées d'animation complètes
+
+**📖 Documentation complète : [public/animator/LAYERS_GUIDE.md](public/animator/LAYERS_GUIDE.md)**
 
 ## 🚀 Technologies utilisées
 
@@ -71,6 +87,18 @@ whiteboard-anim/
 │   ├── index.css                    # Styles Tailwind
 │   └── main.jsx                     # Point d'entrée
 ├── public/                          # Assets statiques
+│   └── animator/                    # Générateur Python d'animations
+│       ├── whiteboard_animator.py   # Script principal
+│       ├── LAYERS_GUIDE.md          # 📖 Guide complet du système de couches
+│       ├── EXPORT_FORMAT.md         # Format JSON d'export
+│       ├── README.md                # Documentation animator
+│       ├── data/images/             # Images de la main/gomme
+│       └── examples/                # Configurations et scripts d'exemple
+│           ├── layers_simple.json
+│           ├── layers_advanced.json
+│           ├── layers_with_animations.json
+│           ├── layers_multi_slide.json
+│           └── use_animation_data.py
 ├── index.html                       # Template HTML
 ├── tailwind.config.js               # Configuration Tailwind
 ├── postcss.config.js                # Configuration PostCSS
@@ -144,6 +172,89 @@ export const sampleStory = [
 
 Vos scènes sont automatiquement sauvegardées dans le navigateur (localStorage). 
 Pour réinitialiser et revenir à l'histoire d'exemple, effacez les données du site dans les paramètres de votre navigateur.
+
+## 🎥 Générateur Python d'animations
+
+Le projet inclut un générateur Python puissant pour créer des vidéos d'animation whiteboard avec système de couches.
+
+### Installation Python
+
+```bash
+cd public/animator
+pip install opencv-python numpy pyav
+```
+
+### Utilisation rapide
+
+#### Mode image unique (classique)
+```bash
+python whiteboard_animator.py image.png
+```
+
+#### Mode couches (nouveau)
+```bash
+# Utiliser une configuration JSON
+python whiteboard_animator.py --config layers_config.json
+
+# Ou directement
+python whiteboard_animator.py layers_config.json
+```
+
+### Fonctionnalités du système de couches
+
+Le mode couches permet de créer des animations complexes avec :
+
+- **Superposition d'images** : Plusieurs couches avec ordre z-index
+- **Positionnement précis** : Position x, y personnalisée
+- **Échelle et opacité** : Contrôle total de l'apparence
+- **Modes de dessin** :
+  - `draw` : Animation avec main
+  - `eraser` : Animation avec gomme
+  - `static` : Affichage direct sans animation
+- **Animations** : Entrée/sortie avec fade, slide, zoom
+- **Caméra** : Zoom et focus sur zones spécifiques
+- **Effets post-dessin** : Zoom-in/out progressif
+- **Multi-slides** : Narrations complexes avec transitions
+
+### Exemple de configuration
+
+```json
+{
+  "width": 1280,
+  "height": 720,
+  "slides": [
+    {
+      "index": 0,
+      "duration": 8,
+      "layers": [
+        {
+          "image_path": "background.png",
+          "z_index": 1,
+          "skip_rate": 5,
+          "mode": "draw"
+        },
+        {
+          "image_path": "logo.png",
+          "position": {"x": 50, "y": 50},
+          "z_index": 2,
+          "scale": 0.3,
+          "mode": "static",
+          "entrance_animation": {
+            "type": "zoom_in",
+            "duration": 1.5
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Documentation complète
+
+- **[LAYERS_GUIDE.md](public/animator/LAYERS_GUIDE.md)** : Guide complet avec tous les paramètres et exemples
+- **[public/animator/examples/](public/animator/examples/)** : Configurations d'exemple
+- **[public/animator/README.md](public/animator/README.md)** : Documentation de l'animator
 
 ## 🎨 Personnalisation
 

@@ -1,12 +1,67 @@
 # Exemples d'utilisation
 
-Ce répertoire contient des exemples de scripts pour utiliser les données d'animation exportées.
+Ce répertoire contient des exemples de scripts et de configurations pour utiliser l'animateur whiteboard.
 
-## use_animation_data.py
+## 📄 Configurations JSON pour le mode couches
+
+### layers_simple.json
+Configuration de base avec deux couches simples : fond et logo.
+
+```bash
+python ../whiteboard_animator.py layers_simple.json
+```
+
+**Fonctionnalités démontrées :**
+- Superposition de couches
+- Ordre z-index
+- Vitesses de dessin différentes
+- Échelle d'image
+
+### layers_advanced.json
+Configuration avancée avec contrôles de caméra et animations post-dessin.
+
+```bash
+python ../whiteboard_animator.py layers_advanced.json
+```
+
+**Fonctionnalités démontrées :**
+- Zoom et focus de caméra
+- Animation zoom-in progressive
+- Effets cinématiques
+
+### layers_with_animations.json
+Démontre les différents modes de dessin et animations d'entrée/sortie.
+
+```bash
+python ../whiteboard_animator.py layers_with_animations.json
+```
+
+**Fonctionnalités démontrées :**
+- Mode "draw" (main)
+- Mode "eraser" (gomme)
+- Mode "static" (sans animation)
+- Animations d'entrée (fade_in, zoom_in)
+- Animations de sortie (fade_out)
+
+### layers_multi_slide.json
+Exemple avec plusieurs slides et transitions.
+
+```bash
+python ../whiteboard_animator.py layers_multi_slide.json
+```
+
+**Fonctionnalités démontrées :**
+- Multi-slides
+- Transitions entre slides (fade)
+- Narration visuelle
+
+## 🐍 Scripts Python
+
+### use_animation_data.py
 
 Script Python qui démontre comment charger et analyser les données d'animation exportées en JSON.
 
-### Utilisation
+#### Utilisation
 
 ```bash
 # Analyser un fichier d'animation
@@ -16,13 +71,13 @@ python use_animation_data.py animation.json
 python use_animation_data.py animation.json --export-sequence sequence.json
 ```
 
-### Fonctionnalités
+#### Fonctionnalités
 
 - **Résumé de l'animation** : Affiche les métadonnées (résolution, FPS, etc.)
 - **Analyse du chemin** : Calcule la distance parcourue par la main
 - **Export de séquence** : Exporte une version simplifiée de la séquence de dessin
 
-### Exemple de sortie
+#### Exemple de sortie
 
 ```
 ============================================================
@@ -59,7 +114,40 @@ ANALYSE DU CHEMIN DE DESSIN
 ============================================================
 ```
 
-## Créer vos propres scripts
+## 📝 Créer vos propres configurations
+
+### Structure minimale
+
+```json
+{
+  "width": 1280,
+  "height": 720,
+  "slides": [
+    {
+      "index": 0,
+      "duration": 5,
+      "layers": [
+        {
+          "image_path": "your_image.png",
+          "z_index": 1
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Personnalisation des couches
+
+Voir [LAYERS_GUIDE.md](../LAYERS_GUIDE.md) pour la documentation complète de toutes les propriétés disponibles :
+- Position et échelle
+- Modes de dessin (draw, eraser, static)
+- Animations d'entrée/sortie
+- Contrôles de caméra
+- Effets post-dessin
+- Morphing entre couches
+
+## 🎨 Créer vos propres scripts
 
 Vous pouvez créer vos propres scripts pour utiliser les données d'animation. Voici un exemple simple :
 
@@ -81,7 +169,7 @@ for frame in data['animation']['frames_written']:
     print(f"Frame {frame['frame_number']}: Main à ({x}, {y})")
 ```
 
-## Cas d'utilisation
+## 💡 Cas d'utilisation
 
 Les données d'animation exportées peuvent être utilisées pour :
 
@@ -90,3 +178,16 @@ Les données d'animation exportées peuvent être utilisées pour :
 3. **Créer des animations personnalisées** en modifiant la séquence
 4. **Intégrer dans des applications web** avec Canvas ou WebGL
 5. **Générer des animations procédurales** basées sur les données
+
+### Le système de couches permet de :
+
+1. **Tutoriels interactifs** : Zoom sur des détails importants
+2. **Présentations produits** : Superposition logo + produit + annotations
+3. **Storytelling visuel** : Histoires multi-scènes avec transitions
+4. **Animations cinématiques** : Effets de zoom et transitions professionnelles
+
+## 📚 Documentation
+
+- [LAYERS_GUIDE.md](../LAYERS_GUIDE.md) - Guide complet du système de couches
+- [EXPORT_FORMAT.md](../EXPORT_FORMAT.md) - Format JSON d'export
+- [README.md](../README.md) - Documentation principale
